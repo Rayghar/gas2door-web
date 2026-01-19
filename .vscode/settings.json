@@ -1,0 +1,7 @@
+{
+  // Tailwind uses @tailwind / @apply directives which the default CSS linter
+  // may flag as "Unknown at rule". This keeps VS Code quiet.
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+  "less.lint.unknownAtRules": "ignore"
+}
