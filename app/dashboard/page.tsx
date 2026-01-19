@@ -59,7 +59,7 @@ export default function DashboardPage() {
   const isGuest = user?.email?.includes('guest') || !user?.email;
 
   // Find active order
-  const activeOrder = orders.find((o: any) => {
+  const activeOrder: any = orders.find((o: any) => {
     const s = (o.status || "").toLowerCase();
     return s && !["delivered", "cancelled", "canceled", "completed"].includes(s);
   });
