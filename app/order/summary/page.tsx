@@ -1,102 +1,159 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import React, { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { CheckCircle2, MapPin, Truck, CreditCard, AlertCircle, Loader2 } from "lucide-react";
 import { TopNav } from "@/components/layout/TopNav";
-import { GlassCard } from "@/components/ui/Glass";
-import { Input } from "@/components/ui/Input";
+import { AppShell } from "@/components/layout/AppShell";
+import { GlassCard, GlassPanel } from "@/components/ui/Glass";
 import { Button } from "@/components/ui/Button";
-import { api } from "@/services/api";
-import { endpoints } from "@/services/endpoints";
-import { useAuth } from "@/state/auth";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { orderApi } from "@/services/orders";
+import { formatNaira } from "@/lib/money";
 
-// 1. ISOLATE LOGIC: Move everything using searchParams into this component
-function VerifyOtpContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams(); // This causes the build error if not suspended
-  const email = searchParams.get("email");
-  const { setSession } = useAuth(); 
+// 1. Create an inner component for the logic
+function SummaryContent() {
+  const sp = useSearchParams();
+  const orderId = sp.get("orderId");
 
-  const [otp, setOtp] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [order, setOrder] = useState<any | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!email) {
-      // Optional: Handle missing email gracefully or redirect
-      // router.push("/login"); 
-    }
-  }, [email, router]);
+    if (!orderId) return;
+    setErr(null);
+    orderApi
+      .getById(orderId)
+      .then((res: any) => setOrder(res.order || res.data || res))
+      .catch((e: any) => setErr(e?.message || "Failed to load order"));
+  }, [orderId]);
 
-  const onVerify = async () => {
-    setLoading(true); setError(null);
-    try {
-      await api.post(endpoints.auth.verifyOtp, { email, otp });
-      setSuccess(true);
-      
-      setTimeout(() => {
-        router.push("/login");
-      }, 2000);
-
-    } catch (e: any) {
-      setError(e?.message || "Invalid code.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const isPending = order?.status === 'Pending Payment' || order?.paymentStatus === 'Pending';
 
   return (
-    <GlassCard className="p-8 text-center">
-      {success ? (
-        <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
-            <CheckCircle2 size={64} className="text-emerald-400 mb-4" />
-            <h1 className="text-2xl font-bold text-white">Verified!</h1>
-            <p className="text-slate-400 mt-2">Redirecting you to login...</p>
+    <GlassCard className="p-8">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${isPending ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-400'}`}>
+            {isPending ? "Payment Required" : "Order Placed"}
+          </div>
+          <h1 className="mt-3 text-3xl font-extrabold text-white">Order Summary</h1>
+          <p className="mt-2 text-gas-slate">
+            {isPending 
+              ? "Your order has been created but not paid for yet." 
+              : "Your order is now in our system. You can track it live."}
+          </p>
         </div>
-      ) : (
-        <>
-            <h1 className="text-2xl font-bold text-white mb-2">Check your Email</h1>
-            <p className="text-sm text-slate-400 mb-6">
-                We sent a 4-digit code to <br/> <span className="text-white font-mono">{email || "your email"}</span>
-            </p>
+        {isPending ? (
+          <AlertCircle size={42} className="text-amber-500" />
+        ) : (
+          <CheckCircle2 size={42} className="text-emerald-500" />
+        )}
+      </div>
 
-            <div className="space-y-4">
-                <Input 
-                    placeholder="Enter 4-digit Code" 
-                    value={otp} 
-                    onChange={(e) => setOtp(e.target.value)} 
-                    className="text-center text-lg tracking-[0.5em] font-bold"
-                    maxLength={4}
-                />
-                
-                {error && <div className="text-sm text-red-400 bg-red-500/10 p-2 rounded-lg">{error}</div>}
+      {err && <div className="mt-5 text-sm font-semibold text-red-400">{err}</div>}
 
-                <Button onClick={onVerify} disabled={loading || otp.length < 4} className="w-full h-12 bg-gas-teal text-gas-navy hover:bg-white">
-                    {loading ? <Loader2 className="animate-spin" /> : "Verify Account"}
-                </Button>
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Stat label="Order ID" value={orderId ? `#${orderId.substring(0,8)}` : "—"} />
+        <Stat label="Status" value={order?.status || "Pending"} />
+        <Stat
+          label="Total"
+          value={order?.grandTotal ? formatNaira(order.grandTotal) : "—"}
+        />
+      </div>
+
+      <div className="mt-7 grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        {/* Action Card */}
+        <GlassPanel className="p-6">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-gas-teal/10 text-gas-teal grid place-items-center">
+              {isPending ? <CreditCard size={18} /> : <Truck size={18} />}
             </div>
-        </>
-      )}
+            <div>
+              <div className="font-extrabold text-white">Next Step</div>
+              <div className="text-sm text-gas-slate">
+                {isPending ? "Complete payment to start delivery." : "Track rider status & ETA."}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            {isPending ? (
+              <Link href={`/payment/${orderId}`}>
+                <Button className="w-full bg-gas-teal text-gas-navy hover:bg-white">
+                  Pay Now
+                </Button>
+              </Link>
+            ) : (
+              <Link href={orderId ? `/track/${orderId}` : "/orders"}>
+                <Button className="w-full">Track Order</Button>
+              </Link>
+            )}
+          </div>
+        </GlassPanel>
+
+        {/* Address Card */}
+        <GlassPanel className="p-6">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-white/5 text-slate-300 grid place-items-center">
+              <MapPin size={18} />
+            </div>
+            <div>
+              <div className="font-extrabold text-white">Delivery Address</div>
+              <div className="text-sm text-gas-slate truncate max-w-[150px]">
+                {order?.deliveryAddressSnapshot?.fullAddress || order?.deliveryAddress?.addressLine || "—"}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <Link href="/addresses">
+              <Button variant="outline" className="w-full">
+                Manage Addresses
+              </Button>
+            </Link>
+          </div>
+        </GlassPanel>
+      </div>
+
+      <div className="mt-6 text-sm text-gas-slate">
+        Need help?{" "}
+        <Link className="text-gas-teal font-semibold hover:underline" href="/support">
+          Contact support
+        </Link>.
+      </div>
     </GlassCard>
   );
 }
 
-// 2. MAIN PAGE: Wrap the content in Suspense
-export default function VerifyOtpPage() {
+// 2. Wrap the content in Suspense in the default export
+export default function OrderSummaryPage() {
   return (
     <div>
       <TopNav />
-      <main className="mx-auto max-w-md px-4 pt-32">
-        <Suspense fallback={
-          <div className="flex justify-center items-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-gas-teal" />
-          </div>
-        }>
-          <VerifyOtpContent />
-        </Suspense>
-      </main>
+      <AppShell>
+        <div className="max-w-3xl mx-auto px-4 pt-10">
+          <Suspense fallback={
+            <div className="flex h-[400px] w-full items-center justify-center">
+               <Loader2 className="h-10 w-10 animate-spin text-gas-teal" />
+            </div>
+          }>
+            <SummaryContent />
+          </Suspense>
+        </div>
+      </AppShell>
     </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <GlassPanel className="p-5">
+      <div className="text-[11px] font-bold text-gas-slate uppercase tracking-wider">
+        {label}
+      </div>
+      <div className="text-lg font-extrabold text-white mt-1">{value}</div>
+    </GlassPanel>
   );
 }
