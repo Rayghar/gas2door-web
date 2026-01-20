@@ -157,7 +157,7 @@ export default function DashboardPage() {
                     
                     {/* ✅ SMART ACTION BUTTON */}
                     <Link href={activeIsPending ? `/payment/${getId(activeOrder)}` : `/track/${getId(activeOrder)}`}>
-                      <Button variant={activeIsPending ? "default" : "outline"} size="sm" className={activeIsPending ? "bg-gas-teal text-gas-navy" : ""}>
+                      <Button variant={activeIsPending ? undefined : "outline"} size="sm" className={activeIsPending ? "bg-gas-teal text-gas-navy" : ""}>
                         {activeIsPending ? (
                             <> <CreditCard className="mr-2 h-4 w-4"/> Pay Now </>
                         ) : (
