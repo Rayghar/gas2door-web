@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation"; // 1. Import useRouter
 import { TopNav } from "@/components/layout/TopNav";
 import { GlassCard } from "@/components/ui/Glass";
 import { Input } from "@/components/ui/Input";
@@ -12,7 +13,8 @@ import { ArrowRight, Chrome, Loader2, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   const { setSession } = useAuth();
-  // Changed state name to 'email' to match backend expectation
+  const router = useRouter(); // 2. Initialize router
+  
   const [email, setEmail] = React.useState(""); 
   const [password, setPassword] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -23,7 +25,6 @@ export default function LoginPage() {
     setError(null);
     
     try {
-      // ✅ FIX: Send 'email' key instead of 'identifier' to match Backend Joi Schema
       const res: any = await api.post(endpoints.auth.login, { 
         email: email, 
         password: password 
@@ -34,13 +35,16 @@ export default function LoginPage() {
       
       if (!token) throw new Error("Login succeeded but no token returned.");
       
+      // This sets the state in React Context
       setSession({ accessToken: token, user });
-      window.location.href = "/dashboard";
+
+      // 3. FIX: Use router.push instead of window.location.href
+      // This preserves the session state we just set!
+      router.push("/dashboard");
       
     } catch (e: any) {
       setError(e?.message || "Login failed");
-    } finally { 
-      setLoading(false); 
+      setLoading(false); // Stop loading only on error (let it spin while redirecting)
     }
   };
 
@@ -59,7 +63,6 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-4">
-            {/* Updated placeholder since backend currently only validates emails */}
             <Input 
               placeholder="Email Address" 
               value={email} 
