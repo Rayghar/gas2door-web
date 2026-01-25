@@ -253,6 +253,10 @@ export function AuthModal() {
   );
 }
 
+// ✅ Backward compatible default export.
+// Some parts of the app previously imported AuthModal as a default export.
+export default AuthModal;
+
 function Field(props: {
   icon: React.ReactNode;
   label: string;

@@ -33,14 +33,10 @@ export const authApi = {
     return session;
   },
 
-  async guestUpgrade(input: { name?: string; email: string; password: string }): Promise<Session> {
-    const res: any = await api.post(endpoints.auth.guestUpgrade, input, { auth: true });
-    const token = res?.token || res?.accessToken || res?.data?.token || res?.data?.accessToken;
-    const user = res?.user || res?.data?.user;
-    if (!token) throw new Error("Upgrade failed. Please try again.");
-    const session: Session = { accessToken: token, user };
-    saveSession(session);
-    return session;
+  // Guest Upgrade does NOT return a new token (it only triggers OTP verification).
+  // Keep it simple and let the UI redirect to /verify-otp.
+  async guestUpgrade(input: { name?: string; email: string; password: string }): Promise<{ userId: string; message: string }> {
+    return api.post(endpoints.auth.guestUpgrade, input, { auth: true });
   },
 
   async resendVerificationEmail(email: string) {
