@@ -5,18 +5,49 @@ type ApiFetchOptions = RequestInit & {
   auth?: boolean;
 };
 
-function getBaseUrl() {
-  // Prefer an explicit backend base URL, but default to same-origin.
-  // In dev/prod, Next rewrites (see next.config.mjs) can proxy common paths
-  // like `/auth/*`, `/orders/*`, etc. to your backend.
+function trimTrailingSlash(value: string) {
+  return String(value || "").replace(/\/+$/, "");
+}
+
+function getConfiguredBaseUrl() {
   const raw =
     process.env.NEXT_PUBLIC_API_BASE_URL ||
     process.env.NEXT_PUBLIC_API_URL ||
     ""; // same-origin fallback
 
-  // If empty => same-origin
-  if (!raw) return "";
-  return raw.replace(/\/$/, "");
+  return trimTrailingSlash(raw);
+}
+
+function splitApiBase(base: string) {
+  const normalized = trimTrailingSlash(base);
+  const match = normalized.match(/^(.*?)(\/api\/v\d+)$/);
+  if (!match) return { origin: normalized, versionPrefix: "" };
+  return { origin: match[1], versionPrefix: match[2] };
+}
+
+function buildApiUrl(path: string) {
+  if (path.startsWith("http")) return path;
+
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  const base = getConfiguredBaseUrl();
+
+  // No backend base configured: keep same-origin behaviour.
+  if (!base) return cleanPath;
+
+  const { origin, versionPrefix } = splitApiBase(base);
+
+  // Important fix:
+  // Some environments configure NEXT_PUBLIC_API_BASE_URL as http://localhost:3000/api/v1
+  // because most legacy web endpoints are v1 and are called as /auth/login, /orders, etc.
+  // Corporate Business endpoints are explicit v2 paths (/api/v2/business/...).
+  // In that case we must NOT create /api/v1/api/v2/business/...; we must call /api/v2 directly.
+  if (cleanPath.startsWith("/api/v1") || cleanPath.startsWith("/api/v2")) {
+    return `${origin || base}${cleanPath}`;
+  }
+
+  // Legacy relative endpoints such as /auth/login should continue to use the configured
+  // API version prefix when present, e.g. http://localhost:3000/api/v1/auth/login.
+  return `${base}${cleanPath}`;
 }
 
 function safeGetSessionToken(): string | null {
@@ -38,7 +69,7 @@ function safeGetSessionToken(): string | null {
       const token = s?.accessToken || s?.token || s?.jwt || s?.data?.token || null;
       if (token) return token;
     } catch {
-      // ignore
+      // ignore corrupt/non-JSON sessions
     }
   }
   return null;
@@ -48,8 +79,7 @@ export async function apiFetch<T = any>(
   path: string,
   options: ApiFetchOptions = {}
 ): Promise<T> {
-  const base = getBaseUrl();
-  const url = path.startsWith("http") ? path : `${base}${path.startsWith("/") ? "" : "/"}${path}`;
+  const url = buildApiUrl(path);
 
   const headers = new Headers(options.headers || {});
   if (!headers.has("Content-Type") && options.body) {
@@ -74,10 +104,9 @@ export async function apiFetch<T = any>(
 
   if (!res.ok) {
     const payload = isJson ? await res.json().catch(() => null) : await res.text().catch(() => "");
-    // Helpful hint when the backend path is not proxied and Next returns an HTML 404.
     if (!isJson && typeof payload === "string" && payload.includes("<title>404")) {
       throw new Error(
-        `API route not found (HTTP ${res.status}). This usually means the frontend is calling a same-origin path like '${path}', but your Next proxy/rewrite to the backend isn't configured. Set NEXT_PUBLIC_API_BASE_URL or API_BASE_URL, or ensure next.config.mjs rewrites are active.`
+        `API route not found (HTTP ${res.status}). Called '${url}'. Check NEXT_PUBLIC_API_BASE_URL / NEXT_PUBLIC_API_URL and backend route registration.`
       );
     }
     const msg =
@@ -108,6 +137,12 @@ export const api = {
     apiFetch<T>(path, {
       ...options,
       method: "PUT",
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    }),
+  patch: <T = any>(path: string, body?: any, options: ApiFetchOptions = {}) =>
+    apiFetch<T>(path, {
+      ...options,
+      method: "PATCH",
       body: body !== undefined ? JSON.stringify(body) : undefined,
     }),
   del: <T = any>(path: string, options: ApiFetchOptions = {}) =>

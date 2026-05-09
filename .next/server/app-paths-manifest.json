@@ -1,3 +1,8 @@
 {
-  "/page": "app/page.js"
+  "/business/dashboard/page": "app/business/dashboard/page.js",
+  "/business/requests/page": "app/business/requests/page.js",
+  "/business/support/page": "app/business/support/page.js",
+  "/business/requests/new/page": "app/business/requests/new/page.js",
+  "/business/sites/page": "app/business/sites/page.js",
+  "/business/invoices/page": "app/business/invoices/page.js"
 }

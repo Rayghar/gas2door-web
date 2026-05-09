@@ -40,7 +40,7 @@ export default function LoginPage() {
 
       // 3. FIX: Use router.push instead of window.location.href
       // This preserves the session state we just set!
-      router.push("/dashboard");
+      router.push(user?.role?.startsWith?.("corporate_") ? "/business/dashboard" : "/dashboard");
       
     } catch (e: any) {
       setError(e?.message || "Login failed");

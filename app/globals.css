@@ -20,3 +20,19 @@ body {
 }
 
 ::selection { background: rgba(20,184,166,0.25); }
+
+/* Form readability hardening for Business Portal and retail app. */
+input,
+textarea,
+select {
+  color: #ffffff;
+}
+select,
+select option {
+  background-color: #020617 !important;
+  color: #ffffff !important;
+}
+input::placeholder,
+textarea::placeholder {
+  color: rgba(148, 163, 184, 0.95);
+}
